@@ -1,7 +1,8 @@
 // Simple test runner for Paynym integration
 // Usage: node blue_modules/paynym/test-runner.js
 
-const PaynymIntegrationTest = require('./PaynymIntegrationTest.ts').default;
+// Since we're running tests directly with Node.js, let's create a simple test harness
+const PaynymDisplayUtils = require('./PaynymDisplayUtils.ts').default;
 
 async function runTests() {
   try {
