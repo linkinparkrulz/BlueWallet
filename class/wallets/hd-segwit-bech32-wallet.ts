@@ -127,6 +127,54 @@ export class HDSegwitBech32Wallet extends AbstractHDElectrumWallet {
   }
 
   /**
+   * Generate signature for Paynym claim
+   * Signs the token with the BIP47 notification address private key
+   * @param token - Token from paynym.rs API
+   * @returns Promise<string> Hex-encoded signature
+   */
+  async generatePaynymClaimSignature(token: string): Promise<string> {
+    if (!this.allowBIP47() || !this.isBIP47Enabled()) {
+      throw new Error('BIP47 is not enabled for this wallet');
+    }
+    
+    const paymentCode = this.getBIP47PaymentCode();
+    if (!paymentCode) {
+      throw new Error('No payment code available');
+    }
+    
+    // Use existing BIP47 instance to get notification address private key
+    const bip47Instance = this.getBIP47FromSeed();
+    const notificationAddress = bip47Instance.getNotificationAddress();
+    
+    // Get the private key for notification address using existing wallet method
+    const notificationWIF = this._getWIFbyAddress(notificationAddress);
+    if (!notificationWIF) {
+      throw new Error('Failed to derive notification private key');
+    }
+    
+    // Create ECPair from WIF using existing wallet pattern
+    // @ts-ignore: using dynamic require like parent class
+    const ECPairFactory = require('ecpair');
+    // @ts-ignore: using dynamic require like parent class
+    const ecc = require('../../blue_modules/noble_ecc');
+    const ECPair = ECPairFactory(ecc);
+    const keyPair = ECPair.fromWIF(notificationWIF);
+    
+    // Hash the token with SHA256 using Node.js crypto
+    // @ts-ignore: using global Buffer
+    const dataBytes = Buffer.from(token, 'utf8');
+    // @ts-ignore: using dynamic require like parent class
+    const crypto = require('crypto');
+    const hash = crypto.createHash('sha256').update(dataBytes).digest();
+    
+    // Sign the hash
+    const signature = keyPair.sign(hash);
+    
+    // Return as hex string
+    return signature.toString('hex');
+  }
+
+  /**
    * Get Paynym info for any payment code
    * @param paymentCode - BIP47 payment code
    * @param forceRefresh - Force refresh from directory

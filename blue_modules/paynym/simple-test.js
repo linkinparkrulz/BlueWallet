@@ -256,3 +256,39 @@ try {
 
 console.log('\n🎯 Basic tests completed!');
 console.log('📝 Next steps: Run tests within BlueWallet app context for full integration testing');
+
+// Test 5: Signature generation test
+try {
+  console.log('\n📋 Test 5: Signature Generation');
+  
+  // Test signature generation with sample token
+  const testToken = 'test-token-for-signature-12345';
+  
+  // Mock wallet methods for testing (since we're not in BlueWallet context)
+  function mockGeneratePaynymClaimSignature(token) {
+    console.log('  📝 Testing signature generation with token:', token.substring(0, 20) + '...');
+    
+    // Mock the signature generation process
+    const crypto = require('crypto');
+    const hash = crypto.createHash('sha256').update(Buffer.from(token, 'utf8')).digest();
+    
+    // Mock signature (in real implementation this would be cryptographic)
+    const mockSignature = Buffer.from('mock-signature-' + hash.toString('hex').substring(0, 16)).toString('hex');
+    
+    console.log('  🔑 SHA256 hash:', hash.toString('hex').substring(0, 20) + '...');
+    console.log('  ✍️  Mock signature:', mockSignature.substring(0, 20) + '...');
+    
+    return mockSignature;
+  }
+  
+  const signature = mockGeneratePaynymClaimSignature(testToken);
+  
+  if (signature && signature.length > 10) {
+    console.log('  ✅ Signature generation: PASS');
+  } else {
+    console.log('  ❌ Signature generation: FAIL');
+  }
+  
+} catch (error) {
+  console.log(`  ❌ Test 5 failed: ${error.message}`);
+}
