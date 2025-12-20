@@ -54,7 +54,7 @@ export class PaynymDisplayUtils {
    * @param paynymInfo - Paynym directory info
    * @returns Avatar URL or null
    */
-  static getAvatarUrl(paynymInfo?: PaynymInfo): string | null {
+  static getAvatarUrl(paynymInfo?: PaynymInfo | null): string | null {
     if (!paynymInfo?.avatar) {
       return null;
     }
