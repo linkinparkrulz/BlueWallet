@@ -73,8 +73,6 @@ export type SendDetailsStackParamList = {
     launchedBy?: string;
     psbt?: Psbt;
     txhex?: string;
-    deepLinkPSBT?: string;
-    onBarScanned?: string;
   };
   CreateTransaction: {
     memo?: string;

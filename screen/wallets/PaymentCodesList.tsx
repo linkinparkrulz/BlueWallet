@@ -4,7 +4,13 @@ import { RouteProp, StackActions, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import assert from 'assert';
 import { sha256 } from '@noble/hashes/sha256';
-import { SectionList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  SectionList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import * as BlueElectrum from '../../blue_modules/BlueElectrum';
 import { satoshiToLocalCurrency } from '../../blue_modules/currency';
 import { HDSegwitBech32Wallet } from '../../class';
@@ -25,6 +31,8 @@ import { useStorage } from '../../hooks/context/useStorage';
 import { DetailViewStackParamList } from '../../navigation/DetailViewStackParamList';
 import { BlueLoading } from '../../components/BlueLoading';
 import { uint8ArrayToHex } from '../../blue_modules/uint8array-extras';
+import PaynymAvatar from '../../components/paynym/PaynymAvatar';
+import PaynymDirectory from '../../blue_modules/paynym/PaynymDirectory';
 
 interface DataSection {
   title: string;
@@ -73,14 +81,21 @@ function onlyUnique(value: any, index: number, self: any[]) {
   return self.indexOf(value) === index;
 }
 
-type PaymentCodeListRouteProp = RouteProp<DetailViewStackParamList, 'PaymentCodeList'>;
-type PaymentCodesListNavigationProp = NativeStackNavigationProp<DetailViewStackParamList, 'PaymentCodeList'>;
+type PaymentCodeListRouteProp = RouteProp<
+  DetailViewStackParamList,
+  'PaymentCodeList'
+>;
+type PaymentCodesListNavigationProp = NativeStackNavigationProp<
+  DetailViewStackParamList,
+  'PaymentCodeList'
+>;
 
 export default function PaymentCodesList() {
   const navigation = useExtendedNavigation<PaymentCodesListNavigationProp>();
   const route = useRoute<PaymentCodeListRouteProp>();
   const { walletID } = route.params;
-  const { wallets, txMetadata, counterpartyMetadata, saveToDisk } = useStorage();
+  const { wallets, txMetadata, counterpartyMetadata, saveToDisk } =
+    useStorage();
   const [reload, setReload] = useState<number>(0);
   const [data, setData] = useState<DataSection[]>([]);
   const { colors } = useTheme();
@@ -97,17 +112,37 @@ export default function PaymentCodesList() {
   useEffect(() => {
     if (!walletID) return;
 
-    const foundWallet = wallets.find(w => w.getID() === walletID) as unknown as AbstractHDElectrumWallet;
+    const foundWallet = wallets.find(
+      (w) => w.getID() === walletID,
+    ) as unknown as AbstractHDElectrumWallet;
     if (!foundWallet) return;
 
     const newData: DataSection[] = [
       {
         title: '',
-        data: foundWallet.getBIP47SenderPaymentCodes().concat(foundWallet.getBIP47ReceiverPaymentCodes()).filter(onlyUnique),
+        data: foundWallet
+          .getBIP47SenderPaymentCodes()
+          .concat(foundWallet.getBIP47ReceiverPaymentCodes())
+          .filter(onlyUnique),
       },
     ];
     setData(newData);
   }, [walletID, wallets, reload]);
+
+  // Handle payment code returned from AddContactScreen
+  useEffect(() => {
+    const paymentCode = route.params?.paymentCode;
+    if (paymentCode) {
+      // Clear the param to prevent re-processing
+      navigation.setParams({ paymentCode: undefined });
+
+      // Process the payment code
+      setIsLoading(true);
+      _addContact(paymentCode).finally(() => {
+        setIsLoading(false);
+      });
+    }
+  }, [route.params?.paymentCode]);
 
   const toolTipActions = useMemo(() => actionKeys, []);
 
@@ -134,7 +169,12 @@ export default function PaymentCodesList() {
         break;
       }
       case String(Actions.rename): {
-        const newName = await prompt(loc.bip47.rename, loc.bip47.provide_name, true, 'plain-text');
+        const newName = await prompt(
+          loc.bip47.rename,
+          loc.bip47.provide_name,
+          true,
+          'plain-text',
+        );
         if (!newName) return;
 
         counterpartyMetadata[pc] = { label: newName };
@@ -150,7 +190,9 @@ export default function PaymentCodesList() {
           return;
         }
         // check if notif tx is in place and has confirmations
-        const foundWallet = wallets.find(w => w.getID() === walletID) as unknown as HDSegwitBech32Wallet;
+        const foundWallet = wallets.find(
+          (w) => w.getID() === walletID,
+        ) as unknown as HDSegwitBech32Wallet;
         assert(foundWallet, 'Internal error: cant find walletID ' + walletID);
         const notifTx = foundWallet.getBIP47NotificationTransaction(pc);
         if (!notifTx) {
@@ -169,7 +211,10 @@ export default function PaymentCodesList() {
         if (!(await confirm(loc.wallets.details_are_you_sure))) {
           return;
         }
-        counterpartyMetadata[pc] = { label: counterpartyMetadata[pc]?.label, hidden: true };
+        counterpartyMetadata[pc] = {
+          label: counterpartyMetadata[pc]?.label,
+          hidden: true,
+        };
         setReload(Math.random());
         await saveToDisk();
         break;
@@ -204,15 +249,20 @@ export default function PaymentCodesList() {
 
     const color = uint8ArrayToHex(sha256(pc)).substring(0, 6);
 
-    const displayName = shortenContactName(counterpartyMetadata?.[pc]?.label || pc);
+    const displayName = shortenContactName(
+      counterpartyMetadata?.[pc]?.label || pc,
+    );
 
     if (previousRouteName === 'SendDetails') {
       return (
         <TouchableOpacity onPress={() => onToolTipPress(Actions.pay, pc)}>
           <View style={styles.contactRowContainer}>
-            <View style={[styles.circle, { backgroundColor: '#' + color }]} />
+            <PaynymAvatar paymentCode={pc} size={35} placeholderColor={color} />
             <View style={styles.contactRowBody}>
-              <Text testID={`ContactListItem${index}`} style={[styles.contactRowNameText, { color: colors.labelText }]}>
+              <Text
+                testID={`ContactListItem${index}`}
+                style={[styles.contactRowNameText, { color: colors.labelText }]}
+              >
                 {displayName}
               </Text>
             </View>
@@ -230,9 +280,12 @@ export default function PaymentCodesList() {
         isMenuPrimaryAction={true}
       >
         <View style={styles.contactRowContainer}>
-          <View style={[styles.circle, { backgroundColor: '#' + color }]} />
+          <PaynymAvatar paymentCode={pc} size={35} placeholderColor={color} />
           <View style={styles.contactRowBody}>
-            <Text testID={`ContactListItem${index}`} style={[styles.contactRowNameText, { color: colors.labelText }]}>
+            <Text
+              testID={`ContactListItem${index}`}
+              style={[styles.contactRowNameText, { color: colors.labelText }]}
+            >
               {displayName}
             </Text>
           </View>
@@ -242,21 +295,92 @@ export default function PaymentCodesList() {
     );
   };
 
-  const onAddContactPress = async () => {
+  const followContactIfClaimed = async (
+    wallet: HDSegwitBech32Wallet,
+    targetPaymentCode: string,
+  ) => {
     try {
-      const newPc = await prompt(loc.bip47.add_contact, loc.bip47.provide_payment_code, true, 'plain-text');
-      if (!newPc) return;
+      console.log(
+        '[FOLLOW DEBUG] Starting auto-follow for:',
+        targetPaymentCode,
+      );
 
-      await _addContact(newPc);
-    } catch (error: any) {
-      console.debug(error.message);
-    } finally {
-      setIsLoading(false);
+      // Step 1: Check if user's Paynym is claimed
+      const userPaymentCode = wallet.getBIP47PaymentCode();
+      const userNymResponse = await PaynymDirectory.nym(userPaymentCode);
+      const userIsClaimed = userNymResponse.value?.codes?.[0]?.claimed || false;
+      console.log('[FOLLOW DEBUG] User Paynym claimed:', userIsClaimed);
+
+      if (!userIsClaimed) {
+        console.log('[FOLLOW DEBUG] User Paynym not claimed, skipping follow');
+        return;
+      }
+
+      // Step 2: Check if contact's Paynym is claimed
+      const contactNymResponse = await PaynymDirectory.nym(targetPaymentCode);
+      const contactIsClaimed =
+        contactNymResponse.value?.codes?.[0]?.claimed || false;
+      console.log('[FOLLOW DEBUG] Contact Paynym claimed:', contactIsClaimed);
+
+      if (!contactIsClaimed) {
+        console.log(
+          '[FOLLOW DEBUG] Contact Paynym not claimed, skipping follow',
+        );
+        return;
+      }
+
+      // Step 3: Both are claimed - proceed with follow
+      console.log(
+        '[FOLLOW DEBUG] Both Paynyms claimed, proceeding with follow',
+      );
+
+      // Get token
+      const tokenResponse = await PaynymDirectory.token(userPaymentCode);
+      if (!tokenResponse.value) {
+        console.error(
+          '[FOLLOW DEBUG] Failed to get token:',
+          tokenResponse.message,
+        );
+        return;
+      }
+
+      // Generate signature (reuse claim signature method)
+      const signature = await wallet.generatePaynymClaimSignature(
+        tokenResponse.value.token,
+      );
+      console.log('[FOLLOW DEBUG] Signature generated');
+
+      // Follow
+      const followResponse = await PaynymDirectory.follow(
+        tokenResponse.value.token,
+        signature,
+        targetPaymentCode,
+      );
+      console.log(
+        '[FOLLOW DEBUG] Follow response status:',
+        followResponse.statusCode,
+      );
+
+      if (followResponse.statusCode === 200) {
+        console.log('[FOLLOW DEBUG] Successfully followed Paynym!');
+      } else {
+        console.error('[FOLLOW DEBUG] Follow failed:', followResponse.message);
+      }
+    } catch (error) {
+      // Don't block - log error but continue
+      console.error('[FOLLOW DEBUG] Auto-follow error:', error);
     }
   };
 
+  const onAddContactPress = () => {
+    // Navigate to a screen where user can enter payment code or scan QR
+    navigation.navigate('AddContactScreen', { walletID });
+  };
+
   const _addContact = async (newPc: string) => {
-    const foundWallet = wallets.find(w => w.getID() === walletID) as unknown as HDSegwitBech32Wallet;
+    const foundWallet = wallets.find(
+      (w) => w.getID() === walletID,
+    ) as unknown as HDSegwitBech32Wallet;
     assert(foundWallet, 'Internal error: cant find walletID ' + walletID);
 
     if (counterpartyMetadata[newPc]?.hidden) {
@@ -274,6 +398,8 @@ export default function PaymentCodesList() {
       foundWallet.addBIP47Receiver(newPc);
       await saveToDisk();
       setReload(Math.random());
+      // Auto-follow if both Paynyms are claimed
+      await followContactIfClaimed(foundWallet, newPc);
       return;
     }
 
@@ -287,6 +413,8 @@ export default function PaymentCodesList() {
       foundWallet.addBIP47Receiver(newPc);
       await saveToDisk();
       setReload(Math.random());
+      // Auto-follow if both Paynyms are claimed
+      await followContactIfClaimed(foundWallet, newPc);
       return;
     }
 
@@ -301,6 +429,8 @@ export default function PaymentCodesList() {
       // (for a case if already have txs with him, we will now be able to label them on tx list)
       await saveToDisk();
       setReload(Math.random());
+      // Auto-follow if both Paynyms are claimed
+      await followContactIfClaimed(foundWallet, newPc);
       return;
     }
 
@@ -324,7 +454,12 @@ export default function PaymentCodesList() {
       presentAlert({ message: loc.send.details_total_exceeds_balance });
       return;
     }
-    const { tx, fee } = foundWallet.createBip47NotificationTransaction(foundWallet.getUtxo(), newPc, fees.fast, changeAddress);
+    const { tx, fee } = foundWallet.createBip47NotificationTransaction(
+      foundWallet.getUtxo(),
+      newPc,
+      fees.fast,
+      changeAddress,
+    );
 
     if (!tx) {
       presentAlert({ message: loc.bip47.failed_create_notif_tx });
@@ -345,7 +480,9 @@ export default function PaymentCodesList() {
         presentAlert({ message: loc.bip47.notif_tx_sent });
         txMetadata[tx.getId()] = { memo: loc.bip47.notif_tx };
         setReload(Math.random());
-        await new Promise(resolve => setTimeout(resolve, 5000)); // tx propagate on backend so our fetch will actually get the new tx
+        await new Promise((resolve) => setTimeout(resolve, 5000)); // tx propagate on backend so our fetch will actually get the new tx
+        // Auto-follow if both Paynyms are claimed
+        await followContactIfClaimed(foundWallet, newPc);
       } catch (_) {}
       setLoadingText('Fetching transactions...');
       await foundWallet.fetchTransactions();
@@ -396,5 +533,13 @@ const styles = StyleSheet.create({
   contactRowBody: { flex: 6, justifyContent: 'center', top: -3 },
   contactRowNameText: { marginLeft: 10, fontSize: 16 },
   contactRowContainer: { flexDirection: 'row', padding: 15 },
-  stick: { borderStyle: 'solid', borderWidth: 0.5, borderColor: 'gray', opacity: 0.5, top: 0, left: -10, width: '110%' },
+  stick: {
+    borderStyle: 'solid',
+    borderWidth: 0.5,
+    borderColor: 'gray',
+    opacity: 0.5,
+    top: 0,
+    left: -10,
+    width: '110%',
+  },
 });

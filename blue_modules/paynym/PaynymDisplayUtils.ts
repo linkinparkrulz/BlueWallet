@@ -36,13 +36,13 @@ export class PaynymDisplayUtils {
   static formatPaymentCode(paymentCode: string, paynymInfo?: PaynymInfo): string {
     // If we have Paynym info, use the nymName
     if (paynymInfo?.nymName) {
-      return `+${paynymInfo.nymName}`;
+      return `${paynymInfo.nymName}`;
     }
     
     // Fallback to truncated payment code with + prefix
     if (paymentCode.startsWith('PM8T') && paymentCode.length > 20) {
       const truncated = paymentCode.substring(0, 20);
-      return `+${truncated}...`;
+      return `${truncated}...`;
     }
     
     // Last resort - just show the payment code
@@ -51,25 +51,16 @@ export class PaynymDisplayUtils {
 
   /**
    * Get avatar URL for a Paynym
-   * @param paynymInfo - Paynym directory info
+   * @param paymentCode - BIP-47 payment code
    * @returns Avatar URL or null
    */
-  static getAvatarUrl(paynymInfo?: PaynymInfo | null): string | null {
-    if (!paynymInfo?.avatar) {
+  static getAvatarUrl(paymentCode: string): string | null {
+    if (!paymentCode) {
       return null;
     }
-    
-    // If it's already a full URL, return as-is
-    if (paynymInfo.avatar.startsWith('http')) {
-      return paynymInfo.avatar;
-    }
-    
-    // Otherwise, construct paynym.rs avatar URL
-    if (paynymInfo.nymID) {
-      return `https://paynym.rs/avatar/${paynymInfo.nymID}.svg`;
-    }
-    
-    return null;
+  
+    // Construct paynym.rs avatar URL using payment code
+    return `https://paynym.rs/${paymentCode}/avatar`;
   }
 
   /**

@@ -11,7 +11,7 @@ export type ScanQRCodeParamList = {
   urTotal?: number;
   urHave?: number;
   backdoorText?: string;
-  onBarScanned?: (data: string, useBBQR: boolean) => void;
+  onBarScanned?: (data: string) => void;
   showFileImportButton?: boolean;
   backdoorVisible?: boolean;
   orientation?: 'portrait';
@@ -82,7 +82,7 @@ export type DetailViewStackParamList = {
   Licensing: undefined;
   NetworkSettings: undefined;
   About: undefined;
-  // DefaultView: undefined; // Commented out - not accessible from UI
+  DefaultView: undefined;
   ElectrumSettings: { server?: ElectrumServerItem; onBarScanned?: string };
   SettingsBlockExplorer: undefined;
   EncryptStorage: undefined;
@@ -94,7 +94,7 @@ export type DetailViewStackParamList = {
   NotificationSettings: undefined;
   SelfTest: undefined;
   ReleaseNotes: undefined;
-  SettingsTools: undefined;
+  ToolsScreen: undefined;
   SettingsPrivacy: undefined;
   ViewEditMultisigCosigners: { walletID: string; cosigners: string[]; onBarScanned?: string };
   WalletXpub: { walletID: string; xpub: string };
@@ -111,8 +111,15 @@ export type DetailViewStackParamList = {
   };
   ScanQRCode: ScanQRCodeParamList;
   PaymentCodeList: {
-    paymentCode: string;
+    paymentCode?: string;
     walletID: string;
+    onBarScanned?: string;
+  };
+  AddContactScreen: {
+    walletID: string;
+    onBarScanned?: string;
   };
   ManageWallets: undefined;
+  PaynymClaim: { wallet: TWallet };
+  PaynymContacts: { wallet: TWallet };
 };
