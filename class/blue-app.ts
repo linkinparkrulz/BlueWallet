@@ -800,24 +800,38 @@ export class BlueApp {
 
   fetchSenderPaymentCodes = async (index?: number) => {
     console.log('fetchSenderPaymentCodes for wallet#', typeof index === 'undefined' ? '(all)' : index);
-    if (index || index === 0) {
-      const wallet = this.wallets[index];
+
+    // 1. Determine which wallets to process
+    const walletsToProcess = (typeof index !== 'undefined') 
+      ? [this.wallets[index]] 
+      : this.wallets;
+
+    // 2. Define the sync function for a single wallet
+    const syncWallet = async (wallet: any) => {
+      if (!wallet) return;
+
+      // Check capabilities
+      const isBip47 = wallet.allowBIP47() && wallet.isBIP47Enabled();
+      if (!isBip47) return;
+
       try {
-        if (!(wallet.allowBIP47() && wallet.isBIP47Enabled() && 'fetchBIP47SenderPaymentCodes' in wallet)) return;
-        await wallet.fetchBIP47SenderPaymentCodes();
-      } catch (error) {
-        console.error('Failed to fetch sender payment codes for wallet', index, error);
-      }
-    } else {
-      for (const wallet of this.wallets) {
-        try {
-          if (!(wallet.allowBIP47() && wallet.isBIP47Enabled() && 'fetchBIP47SenderPaymentCodes' in wallet)) continue;
+        // A. Fetch INCOMING connections (people who added me)
+        if ('fetchBIP47SenderPaymentCodes' in wallet) {
           await wallet.fetchBIP47SenderPaymentCodes();
-        } catch (error) {
-          console.error('Failed to fetch sender payment codes for wallet', wallet.label, error);
         }
+
+        // B. Fetch OUTGOING connections (people I added/follow via API)
+        if ('fetchBIP47ReceiverPaymentCodesViaPaynym' in wallet) {
+          await wallet.fetchBIP47ReceiverPaymentCodesViaPaynym();
+        }
+      } catch (error) {
+        console.error(`Failed to fetch payment codes for wallet ${wallet.label || wallet.getLabel()}:`, error);
       }
-    }
+    };
+
+    // 3. Execute in Parallel
+    // We map the array of wallets to an array of Promises and await them all
+    await Promise.all(walletsToProcess.map(syncWallet));
   };
 
   getWallets = (): TWallet[] => {

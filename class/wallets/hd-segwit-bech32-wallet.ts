@@ -70,9 +70,7 @@ export class HDSegwitBech32Wallet extends AbstractHDElectrumWallet {
    * @param forceRefresh - Force refresh from directory
    * @returns Promise<PaynymInfo | null>
    */
-  async getMyPaynymInfo(
-    forceRefresh: boolean = false,
-  ): Promise<PaynymInfo | null> {
+  async getMyPaynymInfo(forceRefresh: boolean = false): Promise<PaynymInfo | null> {
     if (!this.allowBIP47() || !this.isBIP47Enabled()) {
       return null;
     }
@@ -89,8 +87,7 @@ export class HDSegwitBech32Wallet extends AbstractHDElectrumWallet {
    * Get display name for this wallet
    * @returns Formatted display name
    */
-  getMyPaynymDisplay(): string {
-    if (!this.allowBIP47() || !this.isBIP47Enabled()) {
+  getMyPaynymDisplay(): string { if (!this.allowBIP47() || !this.isBIP47Enabled()) {
       return this.getBIP47PaymentCode() || 'Paynym disabled';
     }
 
@@ -136,8 +133,6 @@ export class HDSegwitBech32Wallet extends AbstractHDElectrumWallet {
    * @returns Promise<string> Hex-encoded signature
    */
   async generatePaynymClaimSignature(token: string): Promise<string> {
-    console.log('[PAYNYM DEBUG] Step 0: Starting signature generation');
-    console.log('[PAYNYM DEBUG] Token length:', token?.length);
 
     if (!this.allowBIP47() || !this.isBIP47Enabled()) {
       throw new Error('BIP47 is not enabled for this wallet');
@@ -147,93 +142,36 @@ export class HDSegwitBech32Wallet extends AbstractHDElectrumWallet {
     if (!paymentCode) {
       throw new Error('No payment code available');
     }
-    console.log('[PAYNYM DEBUG] Step 1: Got payment code');
 
     // Use existing BIP47 instance to get notification node directly
     const bip47Instance = this.getBIP47FromSeed();
-    console.log('[PAYNYM DEBUG] Step 2: Got BIP47 instance:', !!bip47Instance);
 
     // Create ECPair using existing wallet pattern
     // @ts-ignore: using dynamic require like parent class
     const ecpairModule = require('ecpair');
-    console.log(
-      '[PAYNYM DEBUG] Step 3: Required ecpair module:',
-      typeof ecpairModule,
-    );
-    console.log(
-      '[PAYNYM DEBUG] Step 3a: ecpairModule.ECPairFactory:',
-      typeof ecpairModule.ECPairFactory,
-    );
-    console.log(
-      '[PAYNYM DEBUG] Step 3b: ecpairModule.default:',
-      typeof ecpairModule.default,
-    );
 
     // @ts-ignore: using dynamic require like parent class
     const ecc = require('../../blue_modules/noble_ecc');
-    console.log('[PAYNYM DEBUG] Step 4: Required ecc:', typeof ecc);
-    console.log('[PAYNYM DEBUG] Step 4a: ecc.default:', typeof ecc.default);
 
     // Try both default export and named export
-    const ECPairFactory =
-      ecpairModule.ECPairFactory || ecpairModule.default || ecpairModule;
-    console.log(
-      '[PAYNYM DEBUG] Step 4b: ECPairFactory resolved:',
-      typeof ECPairFactory,
-    );
+    const ECPairFactory = ecpairModule.ECPairFactory || ecpairModule.default || ecpairModule;
 
     const eccLib = ecc.default || ecc;
-    console.log('[PAYNYM DEBUG] Step 4c: ecc resolved:', typeof eccLib);
 
     const ECPair = ECPairFactory(eccLib);
-    console.log('[PAYNYM DEBUG] Step 5: Created ECPair:', typeof ECPair);
-    console.log(
-      '[PAYNYM DEBUG] Step 5a: ECPair.fromPrivateKey exists:',
-      typeof ECPair.fromPrivateKey,
-    );
-    console.log(
-      '[PAYNYM DEBUG] Step 5b: ECPair.fromWIF exists:',
-      typeof ECPair.fromWIF,
-    );
 
     // Get notification node directly from BIP47 instance
     const notificationNode = bip47Instance.getNotificationNode();
-    console.log(
-      '[PAYNYM DEBUG] Step 6: Got notification node:',
-      !!notificationNode,
-    );
-    console.log(
-      '[PAYNYM DEBUG] Step 7: notificationNode type:',
-      notificationNode?.constructor?.name,
-    );
-    console.log(
-      '[PAYNYM DEBUG] Step 8: Private key exists:',
-      !!notificationNode?.privateKey,
-    );
-    console.log(
-      '[PAYNYM DEBUG] Step 9: Private key type:',
-      notificationNode?.privateKey?.constructor?.name,
-    );
-    console.log(
-      '[PAYNYM DEBUG] Step 10: Private key length:',
-      notificationNode?.privateKey?.length,
-    );
 
     if (!notificationNode || !notificationNode.privateKey) {
       throw new Error('Failed to derive notification private key');
     }
 
     // Create ECPair from notification node private key
-    console.log(
-      '[PAYNYM DEBUG] Step 11: About to call ECPair.fromPrivateKey...',
-    );
     const keyPair = ECPair.fromPrivateKey(notificationNode.privateKey);
-    console.log('[PAYNYM DEBUG] Step 12: Created keypair:', !!keyPair);
 
     // Use Bitcoin message signing (like BitcoinJ's ECKey.signMessage())
     // This matches Samourai/Sparrow implementation
-    console.log('[PAYNYM DEBUG] Step 13: About to sign message...');
-    console.log('[PAYNYM DEBUG] Step 14: Signing token string (not hashed)');
 
     // Sign the raw token string using Bitcoin message signing standard
     // bitcoinMessage.sign() will:
@@ -247,30 +185,9 @@ export class HDSegwitBech32Wallet extends AbstractHDElectrumWallet {
       true, // Use compressed public key format
     );
 
-    console.log(
-      '[PAYNYM DEBUG] Step 15: Signed! Signature buffer length:',
-      signature?.length,
-    );
-    console.log(
-      '[PAYNYM DEBUG] Step 16: Signature type:',
-      signature?.constructor?.name,
-    );
-
     // Convert signature to base64 string (NOT hex!)
     // Paynym API expects base64 format (like BitcoinJ's ECKey.signMessage())
     const signatureBase64 = signature.toString('base64');
-    console.log(
-      '[PAYNYM DEBUG] Step 17: Signature base64 (first 40 chars):',
-      signatureBase64.substring(0, 40),
-    );
-    console.log(
-      '[PAYNYM DEBUG] Step 18: Signature base64 length:',
-      signatureBase64.length,
-    );
-    console.log(
-      '[PAYNYM DEBUG] Step 19: Signature base64 (last 20 chars):',
-      signatureBase64.substring(signatureBase64.length - 20),
-    );
 
     return signatureBase64;
   }
@@ -281,10 +198,7 @@ export class HDSegwitBech32Wallet extends AbstractHDElectrumWallet {
    * @param forceRefresh - Force refresh from directory
    * @returns Promise<PaynymInfo | null>
    */
-  async getPaynymInfo(
-    paymentCode: string,
-    forceRefresh: boolean = false,
-  ): Promise<PaynymInfo | null> {
+  async getPaynymInfo(paymentCode: string, forceRefresh: boolean = false): Promise<PaynymInfo | null> { 
     if (!this.allowBIP47() || !this.isBIP47Enabled()) {
       return null;
     }
@@ -349,13 +263,7 @@ export class HDSegwitBech32Wallet extends AbstractHDElectrumWallet {
    * @param forceRefresh - Force refresh from directory
    * @returns Promise<Array<{paymentCode: string, paynymInfo: PaynymInfo | null, display: string}>>
    */
-  async getConnectedPaynyms(forceRefresh: boolean = false): Promise<
-    Array<{
-      paymentCode: string;
-      paynymInfo: PaynymInfo | null;
-      display: string;
-    }>
-  > {
+  async getConnectedPaynyms(forceRefresh: boolean = false): Promise< Array<{paymentCode: string; paynymInfo: PaynymInfo | null; display: string;}> > {
     if (!this.allowBIP47() || !this.isBIP47Enabled()) {
       return [];
     }
@@ -367,12 +275,8 @@ export class HDSegwitBech32Wallet extends AbstractHDElectrumWallet {
     const results = [];
     for (const paymentCode of allPaymentCodes) {
       try {
-        const paynymInfo = paymentCode
-          ? await PaynymDirectory.getPaynymInfoCached(paymentCode, forceRefresh)
-          : null;
-        const display = paynymInfo
-          ? PaynymDisplayUtils.formatPaymentCode(paymentCode, paynymInfo)
-          : PaynymDisplayUtils.formatPaymentCode(paymentCode);
+        const paynymInfo = paymentCode ? await PaynymDirectory.getPaynymInfoCached(paymentCode, forceRefresh) : null;
+        const display = paynymInfo ? PaynymDisplayUtils.formatPaymentCode(paymentCode, paynymInfo) : PaynymDisplayUtils.formatPaymentCode(paymentCode);
 
         results.push({
           paymentCode,
@@ -397,13 +301,7 @@ export class HDSegwitBech32Wallet extends AbstractHDElectrumWallet {
    * @param query - Search query
    * @returns Promise<Array<{paymentCode: string, paynymInfo: PaynymInfo | null, display: string}>>
    */
-  async searchPaynyms(query: string): Promise<
-    Array<{
-      paymentCode: string;
-      paynymInfo: PaynymInfo | null;
-      display: string;
-    }>
-  > {
+  async searchPaynyms(query: string): Promise< Array<{paymentCode: string; paynymInfo: PaynymInfo | null; display: string;}> > {
     if (!this.allowBIP47() || !this.isBIP47Enabled()) {
       return [];
     }

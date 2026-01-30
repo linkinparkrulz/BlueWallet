@@ -4,13 +4,7 @@ import { RouteProp, StackActions, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import assert from 'assert';
 import { sha256 } from '@noble/hashes/sha256';
-import {
-  SectionList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { SectionList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as BlueElectrum from '../../blue_modules/BlueElectrum';
 import { satoshiToLocalCurrency } from '../../blue_modules/currency';
 import { HDSegwitBech32Wallet } from '../../class';
@@ -81,21 +75,14 @@ function onlyUnique(value: any, index: number, self: any[]) {
   return self.indexOf(value) === index;
 }
 
-type PaymentCodeListRouteProp = RouteProp<
-  DetailViewStackParamList,
-  'PaymentCodeList'
->;
-type PaymentCodesListNavigationProp = NativeStackNavigationProp<
-  DetailViewStackParamList,
-  'PaymentCodeList'
->;
+type PaymentCodeListRouteProp = RouteProp<DetailViewStackParamList, 'PaymentCodeList'>;
+type PaymentCodesListNavigationProp = NativeStackNavigationProp<DetailViewStackParamList, 'PaymentCodeList'>;
 
 export default function PaymentCodesList() {
   const navigation = useExtendedNavigation<PaymentCodesListNavigationProp>();
   const route = useRoute<PaymentCodeListRouteProp>();
   const { walletID } = route.params;
-  const { wallets, txMetadata, counterpartyMetadata, saveToDisk } =
-    useStorage();
+  const { wallets, txMetadata, counterpartyMetadata, saveToDisk } = useStorage();
   const [reload, setReload] = useState<number>(0);
   const [data, setData] = useState<DataSection[]>([]);
   const { colors } = useTheme();
@@ -112,18 +99,13 @@ export default function PaymentCodesList() {
   useEffect(() => {
     if (!walletID) return;
 
-    const foundWallet = wallets.find(
-      (w) => w.getID() === walletID,
-    ) as unknown as AbstractHDElectrumWallet;
+    const foundWallet = wallets.find(w => w.getID() === walletID) as unknown as AbstractHDElectrumWallet;
     if (!foundWallet) return;
 
     const newData: DataSection[] = [
       {
         title: '',
-        data: foundWallet
-          .getBIP47SenderPaymentCodes()
-          .concat(foundWallet.getBIP47ReceiverPaymentCodes())
-          .filter(onlyUnique),
+        data: foundWallet.getBIP47SenderPaymentCodes().concat(foundWallet.getBIP47ReceiverPaymentCodes()).filter(onlyUnique),
       },
     ];
     setData(newData);
@@ -169,12 +151,7 @@ export default function PaymentCodesList() {
         break;
       }
       case String(Actions.rename): {
-        const newName = await prompt(
-          loc.bip47.rename,
-          loc.bip47.provide_name,
-          true,
-          'plain-text',
-        );
+        const newName = await prompt(loc.bip47.rename, loc.bip47.provide_name, true, 'plain-text');
         if (!newName) return;
 
         counterpartyMetadata[pc] = { label: newName };
@@ -211,10 +188,7 @@ export default function PaymentCodesList() {
         if (!(await confirm(loc.wallets.details_are_you_sure))) {
           return;
         }
-        counterpartyMetadata[pc] = {
-          label: counterpartyMetadata[pc]?.label,
-          hidden: true,
-        };
+        counterpartyMetadata[pc] = { label: counterpartyMetadata[pc]?.label, hidden: true };
         setReload(Math.random());
         await saveToDisk();
         break;
@@ -249,9 +223,7 @@ export default function PaymentCodesList() {
 
     const color = uint8ArrayToHex(sha256(pc)).substring(0, 6);
 
-    const displayName = shortenContactName(
-      counterpartyMetadata?.[pc]?.label || pc,
-    );
+    const displayName = shortenContactName(counterpartyMetadata?.[pc]?.label || pc);
 
     if (previousRouteName === 'SendDetails') {
       return (
@@ -259,10 +231,7 @@ export default function PaymentCodesList() {
           <View style={styles.contactRowContainer}>
             <PaynymAvatar paymentCode={pc} size={35} placeholderColor={color} />
             <View style={styles.contactRowBody}>
-              <Text
-                testID={`ContactListItem${index}`}
-                style={[styles.contactRowNameText, { color: colors.labelText }]}
-              >
+              <Text testID={`ContactListItem${index}`} style={[styles.contactRowNameText, { color: colors.labelText }]}>  
                 {displayName}
               </Text>
             </View>
@@ -282,10 +251,7 @@ export default function PaymentCodesList() {
         <View style={styles.contactRowContainer}>
           <PaynymAvatar paymentCode={pc} size={35} placeholderColor={color} />
           <View style={styles.contactRowBody}>
-            <Text
-              testID={`ContactListItem${index}`}
-              style={[styles.contactRowNameText, { color: colors.labelText }]}
-            >
+            <Text testID={`ContactListItem${index}`} style={[styles.contactRowNameText, { color: colors.labelText }]}>
               {displayName}
             </Text>
           </View>
@@ -378,9 +344,7 @@ export default function PaymentCodesList() {
   };
 
   const _addContact = async (newPc: string) => {
-    const foundWallet = wallets.find(
-      (w) => w.getID() === walletID,
-    ) as unknown as HDSegwitBech32Wallet;
+    const foundWallet = wallets.find(w => w.getID() === walletID) as unknown as HDSegwitBech32Wallet;
     assert(foundWallet, 'Internal error: cant find walletID ' + walletID);
 
     if (counterpartyMetadata[newPc]?.hidden) {
@@ -454,12 +418,7 @@ export default function PaymentCodesList() {
       presentAlert({ message: loc.send.details_total_exceeds_balance });
       return;
     }
-    const { tx, fee } = foundWallet.createBip47NotificationTransaction(
-      foundWallet.getUtxo(),
-      newPc,
-      fees.fast,
-      changeAddress,
-    );
+    const { tx, fee } = foundWallet.createBip47NotificationTransaction(foundWallet.getUtxo(), newPc, fees.fast, changeAddress);
 
     if (!tx) {
       presentAlert({ message: loc.bip47.failed_create_notif_tx });
@@ -533,13 +492,5 @@ const styles = StyleSheet.create({
   contactRowBody: { flex: 6, justifyContent: 'center', top: -3 },
   contactRowNameText: { marginLeft: 10, fontSize: 16 },
   contactRowContainer: { flexDirection: 'row', padding: 15 },
-  stick: {
-    borderStyle: 'solid',
-    borderWidth: 0.5,
-    borderColor: 'gray',
-    opacity: 0.5,
-    top: 0,
-    left: -10,
-    width: '110%',
-  },
+  stick: { borderStyle: 'solid', borderWidth: 0.5, borderColor: 'gray', opacity: 0.5, top: 0, left: -10, width: '110%' },
 });

@@ -273,6 +273,19 @@ const startImport = (
           wallet.setDerivationPath(path);
           yield { progress: `bip39 ${i.script_type} ${path}` };
           if (await wasUsed(wallet)) {
+            // Fetch BIP47 contacts if wallet supports it
+            if (wallet instanceof HDSegwitBech32Wallet && wallet.allowBIP47()) {
+              try {
+                yield { progress: 'fetching BIP47 contacts' };
+                // Fetch incoming contacts (people who added me)
+                await wallet.fetchBIP47SenderPaymentCodes();
+                // Fetch outgoing contacts (people I added/follow)
+                await wallet.fetchBIP47ReceiverPaymentCodesViaPaynym();
+              } catch (error) {
+                console.warn('Failed to fetch BIP47 contacts during import:', error);
+                // Non-blocking - continue with import even if this fails
+              }
+            }
             yield { wallet };
             walletFound = true;
           } else {
@@ -318,6 +331,19 @@ const startImport = (
 
       // if we havent found any wallet for this seed suggest new bech32 wallet
       if (!walletFound) {
+        // Fetch BIP47 contacts for new bech32 wallet if it supports it
+        if (hd2.allowBIP47()) {
+          try {
+            yield { progress: 'fetching BIP47 contacts' };
+            // Fetch incoming contacts (people who added me)
+            await hd2.fetchBIP47SenderPaymentCodes();
+            // Fetch outgoing contacts (people I added/follow)
+            await hd2.fetchBIP47ReceiverPaymentCodesViaPaynym();
+          } catch (error) {
+            console.warn('Failed to fetch BIP47 contacts during import:', error);
+            // Non-blocking - continue with import even if this fails
+          }
+        }
         yield { wallet: hd2 };
       }
     }
@@ -490,23 +516,6 @@ const startImport = (
           if (account.ExtPubKey && account.MasterFingerprint && account.AccountKeyPath) {
             const wallet = new WatchOnlyWallet();
             wallet.setSecret(JSON.stringify(account));
-            wallet.init();
-            yield { wallet };
-          }
-        }
-      }
-    } catch (_) {}
-
-    // is it a generic JSON with multiple accounts?
-    yield { progress: 'multi-account generic JSON' };
-    try {
-      const json = JSON.parse(text);
-
-      if (json.chain === 'BTC' && json.xfp) {
-        for (const account of ['bip86', 'bip84', 'bip49', 'bip44']) {
-          if (json[account] && json[account].desc) {
-            const wallet = new WatchOnlyWallet();
-            wallet.setSecret(json[account].desc);
             wallet.init();
             yield { wallet };
           }

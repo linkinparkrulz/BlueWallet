@@ -19,8 +19,7 @@ const scanQrHelper = async (): Promise<string> => {
     if (navigationRef.isReady()) {
       navigationRef.navigate('ScanQRCode', {
         showFileImportButton: true,
-        onBarScanned: (data: string, useBBQR: true) => {
-          lastScanWasBBQR = useBBQR;
+        onBarScanned: (data: string) => {
           resolve(data);
         },
       });
