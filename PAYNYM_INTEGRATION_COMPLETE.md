@@ -562,6 +562,15 @@ Added comprehensive logging to diagnose issues:
 
 ## 📅 Last Updated
 
+**January 30, 2026** - Enhanced contact display with nymName support:
+
+- ✅ Added automatic fetching of Paynym information for all contacts on mount
+- ✅ Contacts now display nymName instead of payment code when contact has claimed their Paynym
+- ✅ Display priority: user-defined label > nymName (if claimed) > payment code
+- ✅ Uses PaynymDirectory caching for efficient API calls
+- ✅ Improved UX by showing friendly names instead of long payment codes
+- **Files Modified**: `screen/wallets/PaymentCodesList.tsx`
+
 **January 23, 2026** - Fixed BIP47 contact recovery on wallet import:
 
 - ✅ Added BIP47 contact fetching to wallet import process

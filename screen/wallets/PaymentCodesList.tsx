@@ -88,6 +88,7 @@ export default function PaymentCodesList() {
   const { colors } = useTheme();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingText, setLoadingText] = useState<string>('Loading...');
+  const [paynymInfoCache, setPaynymInfoCache] = useState<Record<string, { nymName: string; claimed: boolean }>>({});
   const state = navigation.getState();
   const previousRouteIndex = state.index - 1;
 
@@ -110,6 +111,45 @@ export default function PaymentCodesList() {
     ];
     setData(newData);
   }, [walletID, wallets, reload]);
+
+  // Fetch Paynym info for all payment codes on mount
+  useEffect(() => {
+    const fetchPaynymInfo = async () => {
+      if (!walletID) return;
+
+      const foundWallet = wallets.find(w => w.getID() === walletID) as unknown as AbstractHDElectrumWallet;
+      if (!foundWallet) return;
+
+      const paymentCodes = foundWallet.getBIP47SenderPaymentCodes()
+        .concat(foundWallet.getBIP47ReceiverPaymentCodes())
+        .filter(onlyUnique);
+
+      const newCache: Record<string, { nymName: string; claimed: boolean }> = {};
+
+      for (const pc of paymentCodes) {
+        try {
+          // Use cached version if available
+          const paynymInfo = await PaynymDirectory.getPaynymInfoCached(pc);
+          if (paynymInfo && paynymInfo.nymName) {
+            // Check if claimed by calling nym API directly
+            const nymResponse = await PaynymDirectory.nym(pc);
+            if (nymResponse.value && nymResponse.value.codes?.[0]?.claimed) {
+              newCache[pc] = {
+                nymName: nymResponse.value.nymName,
+                claimed: nymResponse.value.codes[0].claimed,
+              };
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching Paynym info for ${pc}:`, error);
+        }
+      }
+
+      setPaynymInfoCache(newCache);
+    };
+
+    fetchPaynymInfo();
+  }, [walletID, wallets]);
 
   // Handle payment code returned from AddContactScreen
   useEffect(() => {
@@ -223,7 +263,12 @@ export default function PaymentCodesList() {
 
     const color = uint8ArrayToHex(sha256(pc)).substring(0, 6);
 
-    const displayName = shortenContactName(counterpartyMetadata?.[pc]?.label || pc);
+    // Display priority: user-defined label > nymName (if claimed) > payment code
+    const displayName = shortenContactName(
+      counterpartyMetadata?.[pc]?.label ||
+      (paynymInfoCache[pc]?.claimed ? paynymInfoCache[pc]?.nymName : pc) ||
+      pc
+    );
 
     if (previousRouteName === 'SendDetails') {
       return (
