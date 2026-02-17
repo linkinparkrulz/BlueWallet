@@ -28,7 +28,7 @@ import {
   Utxo,
 } from './types';
 import { SilentPayment, UTXOType as SPUTXOType, UTXO as SPUTXO } from 'silent-payments';
-import { isValidBech32Address } from '../../utils/isValidBech32Address';
+import { isValidBech32Address } from '../../util/isValidBech32Address';
 import { PaynymDirectory } from '../../blue_modules/paynym/PaynymDirectory';
 
 const ECPair = ECPairFactory(ecc);
@@ -1961,10 +1961,11 @@ export class AbstractHDElectrumWallet extends AbstractHDWallet {
             return [follow.code];
           }
 
-          // Otherwise fetch their profile
+          // Otherwise fetch their profile — only use the claimed (primary) payment code
           const nymResponse = await PaynymDirectory.nym(follow.nymId);
           if (nymResponse.value?.codes) {
-            return nymResponse.value.codes.map((c: any) => c.code);
+            const claimedCode = nymResponse.value.codes.find((c: any) => c.claimed);
+            return claimedCode ? [claimedCode.code] : [nymResponse.value.codes[0]?.code].filter(Boolean);
           }
         } catch (e) {
           console.log('Error processing follow:', follow.nymId, e);
@@ -1973,7 +1974,8 @@ export class AbstractHDElectrumWallet extends AbstractHDWallet {
       };
 
       // EXECUTE PARALLEL REQUESTS
-      const results = await Promise.all(myAccount.following.map(processFollow));
+      const following = myAccount.following || [];
+      const results = await Promise.all(following.map(processFollow));
 
       // Flatten results and process
       const allFoundCodes = results.flat();
@@ -2066,9 +2068,7 @@ export class AbstractHDElectrumWallet extends AbstractHDWallet {
    * adding counterparty whom we can pay. trusting that notificaton transaction is in place already
    */
   addBIP47Receiver(paymentCode: string) {
-    // Check if already exists in either send or receive lists to prevent duplicates
     if (this._send_payment_codes.includes(paymentCode)) return; // already in send list
-    if (this._receive_payment_codes.includes(paymentCode)) return; // already in receive list
     this._send_payment_codes.push(paymentCode);
   }
 

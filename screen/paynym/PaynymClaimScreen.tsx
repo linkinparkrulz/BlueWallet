@@ -8,21 +8,15 @@ import {
   Alert,
   ActivityIndicator,
   Linking,
-  Platform,
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import Clipboard from '@react-native-clipboard/clipboard';
-import { BlueCard, BlueTextCentered } from '../../BlueComponents';
-import { BlueLoading } from '../../components/BlueLoading';
-import { BlueSpacing } from '../../components/BlueSpacing';
-import { BlueSpacing20 } from '../../components/BlueSpacing';
 import PaynymAvatar from '../../components/paynym/PaynymAvatar';
 import { HDSegwitBech32Wallet } from '../../class';
 import PaynymDirectory from '../../blue_modules/paynym/PaynymDirectory';
 import { useTheme } from '../../components/themes';
-import SafeAreaScrollView from '../../components/SafeAreaScrollView';
 
 type RouteParams = {
   wallet: HDSegwitBech32Wallet;
@@ -82,11 +76,13 @@ const PaynymClaimScreen: React.FC = () => {
 
         // Create/register Paynym on mount - this is the first step
         // If it already exists, the API returns the existing record (status 200)
-        console.log('[INIT DEBUG] Calling create API...');
+        if (__DEV__) console.log('[INIT DEBUG] Calling create API...');
         const createResponse = await PaynymDirectory.create(code);
-        console.log('[INIT DEBUG] Create response status:', createResponse.statusCode);
-        console.log('[INIT DEBUG] Create response message:', createResponse.message);
-        console.log('[INIT DEBUG] Create response claimed:', createResponse.value?.claimed);
+        if (__DEV__) {
+          console.log('[INIT DEBUG] Create response status:', createResponse.statusCode);
+          console.log('[INIT DEBUG] Create response message:', createResponse.message);
+          console.log('[INIT DEBUG] Create response claimed:', createResponse.value?.claimed);
+        }
 
         let paynymInfo: any = null;
         let isClaimed = false;
@@ -103,15 +99,17 @@ const PaynymClaimScreen: React.FC = () => {
           // For existing (200), trust the claimed field from response
           if (createResponse.statusCode === 201) {
             isClaimed = false; // Newly created is always unclaimed
-            console.log('[INIT DEBUG] Status 201 - forcing isClaimed = false');
+            if (__DEV__) console.log('[INIT DEBUG] Status 201 - forcing isClaimed = false');
           } else {
             isClaimed = createResponse.value.claimed; // Trust API for existing
-            console.log('[INIT DEBUG] Status 200 - using API claimed value:', isClaimed);
+            if (__DEV__) console.log('[INIT DEBUG] Status 200 - using API claimed value:', isClaimed);
           }
         }
 
-        console.log('[INIT DEBUG] Final isClaimed state:', isClaimed);
-        console.log('[INIT DEBUG] PaynymInfo:', paynymInfo);
+        if (__DEV__) {
+          console.log('[INIT DEBUG] Final isClaimed state:', isClaimed);
+          console.log('[INIT DEBUG] PaynymInfo:', paynymInfo);
+        }
 
         setClaimed(isClaimed);
         setPaynymInfo(paynymInfo);
@@ -145,29 +143,21 @@ const PaynymClaimScreen: React.FC = () => {
       const signature = await wallet.generatePaynymClaimSignature(
         tokenResponse.value.token,
       );
-      console.log(
-        '[CLAIM DEBUG] Signature generated, length:',
-        signature.length,
-      );
-      console.log(
-        '[CLAIM DEBUG] Signature preview:',
-        signature.substring(0, 20) + '...',
-      );
+      if (__DEV__) {
+        console.log('[CLAIM DEBUG] Signature generated, length:', signature.length);
+        console.log('[CLAIM DEBUG] Signature preview:', signature.substring(0, 20) + '...');
+      }
 
       // Step 3: Claim ownership with signed token
-      console.log('[CLAIM DEBUG] Calling claim API...');
+      if (__DEV__) console.log('[CLAIM DEBUG] Calling claim API...');
       const claimResponse = await PaynymDirectory.claim(
         tokenResponse.value.token,
         signature,
       );
-      console.log(
-        '[CLAIM DEBUG] Claim response status:',
-        claimResponse.statusCode,
-      );
-      console.log(
-        '[CLAIM DEBUG] Claim response message:',
-        claimResponse.message,
-      );
+      if (__DEV__) {
+        console.log('[CLAIM DEBUG] Claim response status:', claimResponse.statusCode);
+        console.log('[CLAIM DEBUG] Claim response message:', claimResponse.message);
+      }
 
       if (!claimResponse.value) {
         throw new Error(`Failed to claim: ${claimResponse.message}`);

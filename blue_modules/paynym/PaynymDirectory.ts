@@ -134,7 +134,7 @@ export class PaynymDirectory {
 
     // Calculate content length like Stack Wallet does
     const bodyString = JSON.stringify(body);
-    const contentLength = new Blob([bodyString]).size;
+    const contentLength = Buffer.byteLength(bodyString, 'utf8');
 
     const headers = {
       'Content-Type': 'application/json; charset=UTF-8',
@@ -164,21 +164,13 @@ export class PaynymDirectory {
           body: bodyString,
         });
 
-        if (!retryResponse.ok) {
-          throw new Error(
-            `HTTP ${retryResponse.status}: ${retryResponse.statusText}`,
-          );
-        }
-
-        const data = await retryResponse.json();
+        const data = await retryResponse.json().catch(() => ({ message: retryResponse.statusText }));
         return [data, retryResponse.status];
       }
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      // Return response data and status for all responses (including 4xx)
+      // so callers can handle specific error codes in their switch statements
+      const data = await response.json().catch(() => ({ message: response.statusText }));
       return [data, response.status];
     } catch (error) {
       console.error('Paynym API request failed:', error);
@@ -197,12 +189,14 @@ export class PaynymDirectory {
    * @returns Promise containing the created PayNym information with a fresh token
    */
   static async create(code: string): Promise<PaynymResponse<CreatedPaynym>> {
-    console.log('[CREATE DEBUG] ========================================');
-    console.log('[CREATE DEBUG] create() called with code:', code.substring(0, 20) + '...');
-    console.log('[CREATE DEBUG] Stack trace:');
-    console.trace();
-    console.log('[CREATE DEBUG] ========================================');
-    
+    if (__DEV__) {
+      console.log('[CREATE DEBUG] ========================================');
+      console.log('[CREATE DEBUG] create() called with code:', code.substring(0, 20) + '...');
+      console.log('[CREATE DEBUG] Stack trace:');
+      console.trace();
+      console.log('[CREATE DEBUG] ========================================');
+    }
+
     try {
       const [result, statusCode] = await this._post('/create', { code });
 
@@ -344,14 +338,16 @@ export class PaynymDirectory {
     token: string,
     signature: string,
   ): Promise<PaynymResponse<PaynymClaim>> {
-    console.log('[CLAIM DEBUG] ========================================');
-    console.log('[CLAIM DEBUG] claim() called');
-    console.log('[CLAIM DEBUG] Token (first 20 chars):', token.substring(0, 20) + '...');
-    console.log('[CLAIM DEBUG] Signature (first 20 chars):', signature.substring(0, 20) + '...');
-    console.log('[CLAIM DEBUG] Stack trace:');
-    console.trace();
-    console.log('[CLAIM DEBUG] ========================================');
-    
+    if (__DEV__) {
+      console.log('[CLAIM DEBUG] ========================================');
+      console.log('[CLAIM DEBUG] claim() called');
+      console.log('[CLAIM DEBUG] Token (first 20 chars):', token.substring(0, 20) + '...');
+      console.log('[CLAIM DEBUG] Signature (first 20 chars):', signature.substring(0, 20) + '...');
+      console.log('[CLAIM DEBUG] Stack trace:');
+      console.trace();
+      console.log('[CLAIM DEBUG] ========================================');
+    }
+
     try {
       const [result, statusCode] = await this._post(
         '/claim',
@@ -723,16 +719,22 @@ export class PaynymDirectory {
    */
   static async claimPaynym(
     paymentCode: string,
-    signature: string,
+    signToken: (token: string) => Promise<string>,
   ): Promise<any> {
     try {
-      // First get a token
+      // Ensure nym exists in directory (create is idempotent)
+      await this.create(paymentCode);
+
+      // Then get a token
       const tokenResponse = await this.token(paymentCode);
       if (!tokenResponse.value) {
         throw new Error(`Failed to get token: ${tokenResponse.message}`);
       }
 
-      // Then claim with the token and signature
+      // Sign the token we just received (ensures token-signature match)
+      const signature = await signToken(tokenResponse.value.token);
+
+      // Then claim with the matching token and signature
       const claimResponse = await this.claim(
         tokenResponse.value.token,
         signature,

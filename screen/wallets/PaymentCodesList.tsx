@@ -311,19 +311,16 @@ export default function PaymentCodesList() {
     targetPaymentCode: string,
   ) => {
     try {
-      console.log(
-        '[FOLLOW DEBUG] Starting auto-follow for:',
-        targetPaymentCode,
-      );
+      if (__DEV__) console.log('[FOLLOW DEBUG] Starting auto-follow for:', targetPaymentCode);
 
       // Step 1: Check if user's Paynym is claimed
       const userPaymentCode = wallet.getBIP47PaymentCode();
       const userNymResponse = await PaynymDirectory.nym(userPaymentCode);
       const userIsClaimed = userNymResponse.value?.codes?.[0]?.claimed || false;
-      console.log('[FOLLOW DEBUG] User Paynym claimed:', userIsClaimed);
+      if (__DEV__) console.log('[FOLLOW DEBUG] User Paynym claimed:', userIsClaimed);
 
       if (!userIsClaimed) {
-        console.log('[FOLLOW DEBUG] User Paynym not claimed, skipping follow');
+        if (__DEV__) console.log('[FOLLOW DEBUG] User Paynym not claimed, skipping follow');
         return;
       }
 
@@ -331,27 +328,20 @@ export default function PaymentCodesList() {
       const contactNymResponse = await PaynymDirectory.nym(targetPaymentCode);
       const contactIsClaimed =
         contactNymResponse.value?.codes?.[0]?.claimed || false;
-      console.log('[FOLLOW DEBUG] Contact Paynym claimed:', contactIsClaimed);
+      if (__DEV__) console.log('[FOLLOW DEBUG] Contact Paynym claimed:', contactIsClaimed);
 
       if (!contactIsClaimed) {
-        console.log(
-          '[FOLLOW DEBUG] Contact Paynym not claimed, skipping follow',
-        );
+        if (__DEV__) console.log('[FOLLOW DEBUG] Contact Paynym not claimed, skipping follow');
         return;
       }
 
       // Step 3: Both are claimed - proceed with follow
-      console.log(
-        '[FOLLOW DEBUG] Both Paynyms claimed, proceeding with follow',
-      );
+      if (__DEV__) console.log('[FOLLOW DEBUG] Both Paynyms claimed, proceeding with follow');
 
       // Get token
       const tokenResponse = await PaynymDirectory.token(userPaymentCode);
       if (!tokenResponse.value) {
-        console.error(
-          '[FOLLOW DEBUG] Failed to get token:',
-          tokenResponse.message,
-        );
+        if (__DEV__) console.error('[FOLLOW DEBUG] Failed to get token:', tokenResponse.message);
         return;
       }
 
@@ -359,7 +349,7 @@ export default function PaymentCodesList() {
       const signature = await wallet.generatePaynymClaimSignature(
         tokenResponse.value.token,
       );
-      console.log('[FOLLOW DEBUG] Signature generated');
+      if (__DEV__) console.log('[FOLLOW DEBUG] Signature generated');
 
       // Follow
       const followResponse = await PaynymDirectory.follow(
@@ -367,19 +357,15 @@ export default function PaymentCodesList() {
         signature,
         targetPaymentCode,
       );
-      console.log(
-        '[FOLLOW DEBUG] Follow response status:',
-        followResponse.statusCode,
-      );
+      if (__DEV__) console.log('[FOLLOW DEBUG] Follow response status:', followResponse.statusCode);
 
       if (followResponse.statusCode === 200) {
-        console.log('[FOLLOW DEBUG] Successfully followed Paynym!');
+        if (__DEV__) console.log('[FOLLOW DEBUG] Successfully followed Paynym!');
       } else {
-        console.error('[FOLLOW DEBUG] Follow failed:', followResponse.message);
+        if (__DEV__) console.error('[FOLLOW DEBUG] Follow failed:', followResponse.message);
       }
     } catch (error) {
-      // Don't block - log error but continue
-      console.error('[FOLLOW DEBUG] Auto-follow error:', error);
+      if (__DEV__) console.error('[FOLLOW DEBUG] Auto-follow error:', error);
     }
   };
 
@@ -483,11 +469,15 @@ export default function PaymentCodesList() {
         foundWallet.addBIP47Receiver(newPc);
         presentAlert({ message: loc.bip47.notif_tx_sent });
         txMetadata[tx.getId()] = { memo: loc.bip47.notif_tx };
+        await saveToDisk();
         setReload(Math.random());
         await new Promise((resolve) => setTimeout(resolve, 5000)); // tx propagate on backend so our fetch will actually get the new tx
         // Auto-follow if both Paynyms are claimed
         await followContactIfClaimed(foundWallet, newPc);
-      } catch (_) {}
+      } catch (error) {
+        console.error('Notification transaction broadcast failed:', error);
+        presentAlert({ message: `${loc.bip47.failed_create_notif_tx}: ${error instanceof Error ? error.message : String(error)}` });
+      }
       setLoadingText('Fetching transactions...');
       await foundWallet.fetchTransactions();
       setLoadingText('');

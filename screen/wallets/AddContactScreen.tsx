@@ -7,8 +7,10 @@ import AddressInput from '../../components/AddressInput';
 import Button from '../../components/Button';
 import { useTheme } from '../../components/themes';
 import loc from '../../loc';
+import { ContactList } from '../../class/contact-list';
 import { DetailViewStackParamList } from '../../navigation/DetailViewStackParamList';
 import { DismissKeyboardInputAccessory, DismissKeyboardInputAccessoryViewID } from '../../components/DismissKeyboardInputAccessory';
+import presentAlert from '../../components/Alert';
 
 type AddContactScreenRouteProp = RouteProp<DetailViewStackParamList, 'AddContactScreen'>;
 type AddContactScreenNavigationProp = NativeStackNavigationProp<DetailViewStackParamList, 'AddContactScreen'>;
@@ -38,8 +40,6 @@ const AddContactScreen: React.FC = () => {
       const scannedData = route.params.onBarScanned;
       if (typeof scannedData === 'string') {
         setPaymentCode(scannedData);
-      } else if (scannedData?.data) {
-        setPaymentCode(scannedData.data);
       }
       // Clear the param to prevent re-processing
       navigation.setParams({ onBarScanned: undefined });
@@ -47,16 +47,23 @@ const AddContactScreen: React.FC = () => {
   }, [route.params?.onBarScanned, navigation]);
 
   const handleAddContact = useCallback(() => {
-    if (!paymentCode.trim()) {
+    const trimmed = paymentCode.trim();
+    if (!trimmed) {
       return;
     }
-    
+
+    const cl = new ContactList();
+    if (!cl.isPaymentCodeValid(trimmed) && !cl.isAddressValid(trimmed)) {
+      presentAlert({ message: loc.bip47.invalid_pc });
+      return;
+    }
+
     Keyboard.dismiss();
-    
+
     // Navigate back to PaymentCodeList with the payment code
     navigation.navigate('PaymentCodeList', {
       walletID,
-      paymentCode: paymentCode.trim(),
+      paymentCode: trimmed,
     });
   }, [paymentCode, walletID, navigation]);
 
