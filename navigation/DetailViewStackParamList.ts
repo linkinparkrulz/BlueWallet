@@ -120,6 +120,6 @@ export type DetailViewStackParamList = {
     onBarScanned?: string;
   };
   ManageWallets: undefined;
-  PaynymClaim: { wallet: TWallet };
+  PaynymClaim: { walletID: string };
   PaynymContacts: { wallet: TWallet };
 };
