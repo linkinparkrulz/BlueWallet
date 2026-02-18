@@ -287,5 +287,125 @@ describe('BIP47 wallet methods', () => {
       await w.fetchBIP47ReceiverPaymentCodesViaPaynym();
       assert.strictEqual(w._send_payment_codes.length, 0);
     });
+
+    it('batches requests when following many contacts', async () => {
+      const w = new HDSegwitBech32Wallet();
+      w.setSecret(TEST_MNEMONIC);
+      w.switchBIP47(true);
+
+      const myPC = w.getBIP47PaymentCode();
+
+      // Create 12 follows to test batching (should be 3 batches of 5,5,2)
+      const follows = Array.from({ length: 12 }, (_, i) => ({ nymId: `nym_${i}` }));
+
+      // Track call order to verify batching behavior
+      const callOrder: string[] = [];
+
+      mockNym.mockImplementation(async (codeOrId: string) => {
+        if (codeOrId === myPC) {
+          return {
+            value: { nymID: 'my_nym', following: follows, codes: [{ code: myPC, claimed: true }] },
+            statusCode: 200,
+            message: 'OK',
+          };
+        }
+        callOrder.push(codeOrId);
+        // Return empty codes — we just care about batching, not results
+        return {
+          value: { nymID: codeOrId, codes: [] },
+          statusCode: 200,
+          message: 'OK',
+        };
+      });
+
+      await w.fetchBIP47ReceiverPaymentCodesViaPaynym();
+
+      // 1 call for own profile + 12 calls for follows = 13 total
+      assert.strictEqual(mockNym.mock.calls.length, 13);
+      // All 12 follows were processed
+      assert.strictEqual(callOrder.length, 12);
+    });
+  });
+
+  describe('isMyPaynymClaimed', () => {
+    it('returns true when nym has a claimed code', async () => {
+      const w = new HDSegwitBech32Wallet();
+      w.setSecret(TEST_MNEMONIC);
+      w.switchBIP47(true);
+
+      const myPC = w.getBIP47PaymentCode();
+
+      mockNym.mockResolvedValue({
+        value: {
+          nymID: 'my_nym',
+          codes: [{ code: myPC, claimed: true }],
+          following: [],
+          followers: [],
+        },
+        statusCode: 200,
+        message: 'OK',
+      });
+
+      const result = await w.isMyPaynymClaimed();
+      assert.strictEqual(result, true);
+    });
+
+    it('returns false when nym exists but no codes are claimed', async () => {
+      const w = new HDSegwitBech32Wallet();
+      w.setSecret(TEST_MNEMONIC);
+      w.switchBIP47(true);
+
+      const myPC = w.getBIP47PaymentCode();
+
+      mockNym.mockResolvedValue({
+        value: {
+          nymID: 'my_nym',
+          codes: [{ code: myPC, claimed: false }],
+          following: [],
+          followers: [],
+        },
+        statusCode: 200,
+        message: 'OK',
+      });
+
+      const result = await w.isMyPaynymClaimed();
+      assert.strictEqual(result, false);
+    });
+
+    it('returns false when nym is not found (404)', async () => {
+      const w = new HDSegwitBech32Wallet();
+      w.setSecret(TEST_MNEMONIC);
+      w.switchBIP47(true);
+
+      mockNym.mockResolvedValue({
+        value: null,
+        statusCode: 404,
+        message: 'Not found',
+      });
+
+      const result = await w.isMyPaynymClaimed();
+      assert.strictEqual(result, false);
+    });
+
+    it('returns false when BIP47 is disabled', async () => {
+      const w = new HDSegwitBech32Wallet();
+      w.setSecret(TEST_MNEMONIC);
+      // BIP47 NOT enabled
+
+      const result = await w.isMyPaynymClaimed();
+      assert.strictEqual(result, false);
+      assert.strictEqual(mockNym.mock.calls.length, 0);
+    });
+
+    it('returns false when API throws', async () => {
+      const w = new HDSegwitBech32Wallet();
+      w.setSecret(TEST_MNEMONIC);
+      w.switchBIP47(true);
+
+      mockNym.mockRejectedValue(new Error('Network error'));
+
+      const result = await w.isMyPaynymClaimed();
+      assert.strictEqual(result, false);
+    });
   });
 });

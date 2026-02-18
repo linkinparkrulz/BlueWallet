@@ -105,12 +105,22 @@ export class HDSegwitBech32Wallet extends AbstractHDElectrumWallet {
   }
 
   /**
-   * Check if Paynym is claimed
+   * Check if Paynym is claimed (not just created) in the directory
    * @returns Promise<boolean>
    */
   async isMyPaynymClaimed(): Promise<boolean> {
-    const paynymInfo = await this.getMyPaynymInfo();
-    return paynymInfo !== null;
+    if (!this.allowBIP47() || !this.isBIP47Enabled()) return false;
+
+    const paymentCode = this.getBIP47PaymentCode();
+    if (!paymentCode) return false;
+
+    try {
+      const response = await PaynymDirectory.nym(paymentCode);
+      if (!response.value || response.statusCode !== 200) return false;
+      return response.value.codes.some(c => c.claimed);
+    } catch {
+      return false;
+    }
   }
 
   /**

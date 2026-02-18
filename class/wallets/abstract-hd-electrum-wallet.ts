@@ -1973,9 +1973,15 @@ export class AbstractHDElectrumWallet extends AbstractHDWallet {
         return [];
       };
 
-      // EXECUTE PARALLEL REQUESTS
+      // EXECUTE REQUESTS IN BATCHES TO AVOID OVERWHELMING THE API
       const following = myAccount.following || [];
-      const results = await Promise.all(following.map(processFollow));
+      const BATCH_SIZE = 5;
+      const results: string[][] = [];
+      for (let i = 0; i < following.length; i += BATCH_SIZE) {
+        const batch = following.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(batch.map(processFollow));
+        results.push(...batchResults);
+      }
 
       // Flatten results and process
       const allFoundCodes = results.flat();
