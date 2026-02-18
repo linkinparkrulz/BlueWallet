@@ -1992,6 +1992,11 @@ export class AbstractHDElectrumWallet extends AbstractHDWallet {
         try {
           bip47.fromPaymentCode(code); // Validate
 
+          // Only recover codes where we actually sent a notification tx on-chain.
+          // Without this check, the wallet could derive addresses for a counterparty
+          // that never received our notification — funds sent there would be unrecoverable.
+          if (!this.getBIP47NotificationTransaction(code)) continue;
+
           if (!recoveredCodes.has(code)) {
             console.log('Recovered outgoing Paynym:', code);
             recoveredCodes.add(code);
