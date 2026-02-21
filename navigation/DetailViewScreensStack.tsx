@@ -308,7 +308,6 @@ const DetailViewStackScreensStack = () => {
         component={GeneralSettings}
         options={navigationStyle(getSettingsHeaderOptions(loc.settings.general))(theme)}
       />
-      // we are doing getSettingsHeaderOptions!!!!!!!!!!!!!!
       <DetailViewStack.Screen
         name="PlausibleDeniability"
         component={PlausibleDeniability}

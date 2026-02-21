@@ -5,10 +5,14 @@ declare const console: {
 };
 
 import { AbstractHDElectrumWallet } from './abstract-hd-electrum-wallet';
+import { ECPairFactory } from 'ecpair';
+import ecc from '../../blue_modules/noble_ecc';
 import PaynymDirectory from '../../blue_modules/paynym/PaynymDirectory';
 import PaynymDisplayUtils from '../../blue_modules/paynym/PaynymDisplayUtils';
 import { PaynymInfo } from '../../blue_modules/paynym/PaynymDirectory';
 import * as bitcoinMessage from 'bitcoinjs-message';
+
+const ECPair = ECPairFactory(ecc);
 
 /**
  * HD Wallet (BIP39).
@@ -87,7 +91,8 @@ export class HDSegwitBech32Wallet extends AbstractHDElectrumWallet {
    * Get display name for this wallet
    * @returns Formatted display name
    */
-  getMyPaynymDisplay(): string { if (!this.allowBIP47() || !this.isBIP47Enabled()) {
+  getMyPaynymDisplay(): string {
+    if (!this.allowBIP47() || !this.isBIP47Enabled()) {
       return this.getBIP47PaymentCode() || 'Paynym disabled';
     }
 
@@ -110,10 +115,10 @@ export class HDSegwitBech32Wallet extends AbstractHDElectrumWallet {
 
   /**
    * Claim this wallet's Paynym (register with directory)
-   * @param signature - Signed message for verification
+   * Gets a fresh token, signs it, and submits the claim in one atomic flow.
    * @returns Promise<any>
    */
-  async claimMyPaynym(signature: string): Promise<any> {
+  async claimMyPaynym(): Promise<any> {
     if (!this.allowBIP47() || !this.isBIP47Enabled()) {
       throw new Error('BIP47 is not enabled for this wallet');
     }
@@ -123,7 +128,7 @@ export class HDSegwitBech32Wallet extends AbstractHDElectrumWallet {
       throw new Error('No payment code available for claiming');
     }
 
-    return await PaynymDirectory.claimPaynym(paymentCode, signature);
+    return await PaynymDirectory.claimPaynym(paymentCode, (token) => this.generatePaynymClaimSignature(token));
   }
 
   /**
@@ -143,24 +148,7 @@ export class HDSegwitBech32Wallet extends AbstractHDElectrumWallet {
       throw new Error('No payment code available');
     }
 
-    // Use existing BIP47 instance to get notification node directly
     const bip47Instance = this.getBIP47FromSeed();
-
-    // Create ECPair using existing wallet pattern
-    // @ts-ignore: using dynamic require like parent class
-    const ecpairModule = require('ecpair');
-
-    // @ts-ignore: using dynamic require like parent class
-    const ecc = require('../../blue_modules/noble_ecc');
-
-    // Try both default export and named export
-    const ECPairFactory = ecpairModule.ECPairFactory || ecpairModule.default || ecpairModule;
-
-    const eccLib = ecc.default || ecc;
-
-    const ECPair = ECPairFactory(eccLib);
-
-    // Get notification node directly from BIP47 instance
     const notificationNode = bip47Instance.getNotificationNode();
 
     if (!notificationNode || !notificationNode.privateKey) {
@@ -168,7 +156,8 @@ export class HDSegwitBech32Wallet extends AbstractHDElectrumWallet {
     }
 
     // Create ECPair from notification node private key
-    const keyPair = ECPair.fromPrivateKey(notificationNode.privateKey);
+    // Validate private key is on secp256k1 curve before signing
+    ECPair.fromPrivateKey(notificationNode.privateKey);
 
     // Use Bitcoin message signing (like BitcoinJ's ECKey.signMessage())
     // This matches Samourai/Sparrow implementation
