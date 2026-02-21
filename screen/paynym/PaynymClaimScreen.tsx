@@ -17,21 +17,32 @@ import PaynymAvatar from '../../components/paynym/PaynymAvatar';
 import { HDSegwitBech32Wallet } from '../../class';
 import PaynymDirectory from '../../blue_modules/paynym/PaynymDirectory';
 import { useTheme } from '../../components/themes';
+import { useStorage } from '../../hooks/context/useStorage';
 
 type RouteParams = {
-  wallet: HDSegwitBech32Wallet;
+  walletID: string;
 };
 
 const PaynymClaimScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: RouteParams }>>();
-  const { wallet } = route.params;
+  const { walletID } = route.params;
+  const { wallets } = useStorage();
+  const wallet = wallets.find(w => w.getID() === walletID) as HDSegwitBech32Wallet | undefined;
   const { colors } = useTheme();
 
   const [loading, setLoading] = useState(false);
   const [claimed, setClaimed] = useState(false);
   const [paynymInfo, setPaynymInfo] = useState<any>(null);
   const [paymentCode, setPaymentCode] = useState('');
+
+  if (!wallet) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text>Wallet not found</Text>
+      </SafeAreaView>
+    );
+  }
 
   const stylesHook = StyleSheet.create({
     container: {
@@ -123,7 +134,7 @@ const PaynymClaimScreen: React.FC = () => {
     };
 
     initializeScreen();
-  }, [wallet]);
+  }, [walletID]);
 
   const handleClaim = useCallback(async () => {
     if (!wallet.allowBIP47()) {
